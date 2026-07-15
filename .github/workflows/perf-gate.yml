@@ -1,0 +1,43 @@
+name: Performance Gate (demo)
+
+# Live demo of the Performance Gate agent (github.com/anirudhatalmale6-alt/perf-gate-agent).
+# This runs on every push. In this DEMO repo we scan the whole tree (--all) so the
+# full report always shows. In a real repo you'd omit --all to review only the pushed
+# diff, and run it on a SELF-HOSTED runner inside your network so the local LLM
+# (Ollama) is used and nothing leaves your infrastructure. Here on a hosted runner it
+# runs static-only, which is why findings are "not LLM-confirmed".
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  perf-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Performance Gate
+        run: pip install "git+https://github.com/anirudhatalmale6-alt/perf-gate-agent.git"
+
+      - name: Run Performance Gate
+        env:
+          PERF_GATE_LLM_DISABLED: "1"   # no local model on a hosted runner -> static only
+          PERF_GATE_FAIL_ON: NONE       # demo: report only, don't fail the run
+        run: perf-gate review --all --json perf-gate-findings.json
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-findings
+          path: perf-gate-findings.json
